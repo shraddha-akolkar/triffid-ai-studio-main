@@ -1,13 +1,31 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Users, FolderKanban, Key, Rocket, Activity,
-  GitBranch, Blocks, Cloud, Calculator, Code, Database
+  LayoutDashboard,
+  Users,
+  FolderKanban,
+  Key,
+  Rocket,
+  Activity,
+  GitBranch,
+  Blocks,
+  Cloud,
+  Calculator,
+  Code,
+  Database,
+  Server,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 const navByRole = {
@@ -29,7 +47,16 @@ const navByRole = {
   employee: [
     { title: "Dashboard", url: "/employee", icon: LayoutDashboard },
     { title: "Projects", url: "/employee/projects", icon: FolderKanban },
-    { title: "AI Generator", url: "/employee/generator", icon: Code },
+    {
+      title: "Frontend Builder",
+      url: "/employee/frontend-builder",
+      icon: Code,
+    },
+    {
+      title: "Backend Builder",
+      url: "/employee/backend-builder",
+      icon: Server,
+    },
     { title: "Database", url: "/employee/database", icon: Database },
   ],
 };
@@ -45,9 +72,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <div className="h-14 flex items-center px-4 border-b border-border">
         {!collapsed && (
-          <span className="text-lg font-bold gradient-text tracking-tight">Triffid AI</span>
+          <span className="text-lg font-bold gradient-text tracking-tight">
+            Triffid AI
+          </span>
         )}
-        {collapsed && <span className="text-lg font-bold gradient-text">T</span>}
+        {collapsed && (
+          <span className="text-lg font-bold gradient-text">T</span>
+        )}
       </div>
       <SidebarContent>
         <SidebarGroup>

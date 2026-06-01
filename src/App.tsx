@@ -21,6 +21,7 @@ import ManagerCost from "./pages/manager/ManagerCost";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import EmployeeProjects from "./pages/employee/EmployeeProjects";
 import EmployeeGenerator from "./pages/employee/EmployeeGenerator";
+import EmployeeBackendBuilder from "./pages/employee/EmployeeBackendBuilder";
 import EmployeeDatabase from "./pages/employee/EmployeeDatabase";
 import NotFound from "./pages/NotFound";
 
@@ -48,8 +49,14 @@ const App = () => (
               <Route path="/manager" element={<ManagerDashboard />} />
               <Route path="/manager/projects" element={<ManagerProjects />} />
               <Route path="/manager/api-keys" element={<ManagerApiKeys />} />
-              <Route path="/manager/deployment" element={<ManagerDeployment />} />
-              <Route path="/manager/monitoring" element={<ManagerMonitoring />} />
+              <Route
+                path="/manager/deployment"
+                element={<ManagerDeployment />}
+              />
+              <Route
+                path="/manager/monitoring"
+                element={<ManagerMonitoring />}
+              />
               <Route path="/manager/cicd" element={<ManagerCICD />} />
               <Route path="/manager/builder" element={<ManagerBuilder />} />
               <Route path="/manager/cloud" element={<ManagerCloud />} />
@@ -60,7 +67,14 @@ const App = () => (
             <Route element={<DashboardLayout />}>
               <Route path="/employee" element={<EmployeeDashboard />} />
               <Route path="/employee/projects" element={<EmployeeProjects />} />
-              <Route path="/employee/generator" element={<EmployeeGenerator />} />
+              <Route
+                path="/employee/frontend-builder"
+                element={<EmployeeGenerator />}
+              />
+              <Route
+                path="/employee/backend-builder"
+                element={<EmployeeBackendBuilder />}
+              />
               <Route path="/employee/database" element={<EmployeeDatabase />} />
             </Route>
 
