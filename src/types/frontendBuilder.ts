@@ -6,11 +6,18 @@ export interface FrontendPromptEntry {
   at: string;
 }
 
+export interface FrontendSnapshot {
+  html: string;
+  label: string;
+  at: string;
+}
+
 export interface FrontendProject {
   id: string;
   name: string;
   techStack: TechStack;
   html: string;
+  versions?: FrontendSnapshot[];
   prompts: FrontendPromptEntry[];
   createdAt: string;
   updatedAt: string;

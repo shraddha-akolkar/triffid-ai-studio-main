@@ -1,16 +1,38 @@
-import type { FrontendProject } from "@/types/frontendBuilder";
+import type { FrontendProject, FrontendSnapshot } from "@/types/frontendBuilder";
 
 const STORAGE_KEY = "triffid_frontend_projects";
+
+function migrateProject(project: FrontendProject): FrontendProject {
+  if (project.versions?.length) return project;
+  const snapshot: FrontendSnapshot = {
+    html: project.html,
+    label: "Initial version",
+    at: project.updatedAt || project.createdAt,
+  };
+  return { ...project, versions: [snapshot] };
+}
 
 export function loadFrontendProjects(): FrontendProject[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as FrontendProject[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(migrateProject);
   } catch {
     return [];
   }
+}
+
+export function getProjectVersions(project: FrontendProject): FrontendSnapshot[] {
+  if (project.versions?.length) return project.versions;
+  return [
+    {
+      html: project.html,
+      label: "Initial version",
+      at: project.updatedAt || project.createdAt,
+    },
+  ];
 }
 
 export function saveFrontendProjects(projects: FrontendProject[]): void {

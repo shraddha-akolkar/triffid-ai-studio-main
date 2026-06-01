@@ -84,4 +84,118 @@
     background: hsl(220 15% 8% / 0.8);
     backdrop-filter: blur(12px);
   }
+
+  /* Frontend Builder — generation overlay */
+  .fb-gen-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .fb-gen-orb-1 {
+    width: 320px;
+    height: 320px;
+    top: 10%;
+    left: 15%;
+    background: hsl(168 80% 50% / 0.25);
+    animation: fb-orb-drift 8s ease-in-out infinite;
+  }
+  .fb-gen-orb-2 {
+    width: 280px;
+    height: 280px;
+    bottom: 15%;
+    right: 10%;
+    background: hsl(200 80% 55% / 0.2);
+    animation: fb-orb-drift 10s ease-in-out infinite reverse;
+  }
+  .fb-gen-orb-3 {
+    width: 200px;
+    height: 200px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: hsl(168 80% 50% / 0.15);
+    animation: fb-orb-pulse 4s ease-in-out infinite;
+  }
+  .fb-gen-grid {
+    background-image:
+      linear-gradient(hsl(168 80% 50% / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(168 80% 50% / 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: fb-grid-scroll 20s linear infinite;
+  }
+  .fb-gen-ring {
+    position: absolute;
+    inset: -16px;
+    border-radius: 1.25rem;
+    border: 2px solid transparent;
+  }
+  .fb-gen-ring-outer {
+    border-color: hsl(168 80% 50% / 0.35);
+    animation: fb-ring-spin 12s linear infinite;
+  }
+  .fb-gen-ring-inner {
+    inset: -8px;
+    border-color: hsl(200 80% 55% / 0.25);
+    animation: fb-ring-spin 8s linear infinite reverse;
+  }
+  .fb-gen-pulse-icon {
+    animation: fb-icon-pulse 2s ease-in-out infinite;
+  }
+  .fb-gen-float {
+    animation: fb-float 3s ease-in-out infinite;
+  }
+  .fb-gen-float-delayed {
+    animation: fb-float 3.5s ease-in-out 0.5s infinite;
+  }
+  .fb-gen-float-slow {
+    animation: fb-float 4s ease-in-out 1s infinite;
+  }
+  .fb-gen-status-fade {
+    animation: fb-status-fade 0.5s ease-out;
+  }
+  .fb-gen-dot {
+    animation: fb-dot-bounce 1.2s ease-in-out infinite;
+  }
+  .fb-gen-progress {
+    width: 40%;
+    animation: fb-progress-slide 2s ease-in-out infinite;
+  }
+
+  @keyframes fb-orb-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(30px, -20px) scale(1.1); }
+  }
+  @keyframes fb-orb-pulse {
+    0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.2); }
+  }
+  @keyframes fb-grid-scroll {
+    0% { background-position: 0 0; }
+    100% { background-position: 48px 48px; }
+  }
+  @keyframes fb-ring-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes fb-icon-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.85; }
+  }
+  @keyframes fb-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes fb-status-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fb-dot-bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1.2); opacity: 1; }
+  }
+  @keyframes fb-progress-slide {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(120%); }
+    100% { transform: translateX(-100%); }
+  }
 }

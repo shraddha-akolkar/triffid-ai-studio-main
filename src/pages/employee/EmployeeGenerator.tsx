@@ -1,25 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Code,
-  Eye,
   FolderOpen,
-  Loader2,
   Plus,
   Sparkles,
   Trash2,
-  Copy,
-  Check,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import type { FrontendProject, TechStack } from "@/types/frontendBuilder";
+import type { FrontendProject, FrontendSnapshot, TechStack } from "@/types/frontendBuilder";
 import {
   deleteFrontendProject,
+  getProjectVersions,
   loadFrontendProjects,
   upsertFrontendProject,
 } from "@/services/frontendBuilderStorage";
@@ -27,6 +23,7 @@ import {
   generateFrontendHtml,
   updateFrontendHtml,
 } from "@/services/openaiFrontend";
+import { BrowserPreview } from "@/components/frontend-builder/BrowserPreview";
 import { cn } from "@/lib/utils";
 
 const TECH_OPTIONS: {
@@ -58,6 +55,27 @@ function createProjectId(): string {
   return `fp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function snapshotLabel(prompt: string): string {
+  const text = prompt.trim();
+  return text.length > 56 ? `${text.slice(0, 56)}…` : text;
+}
+
+function withNewVersion(
+  project: FrontendProject,
+  html: string,
+  label: string,
+): FrontendProject {
+  const now = new Date().toISOString();
+  const snapshot: FrontendSnapshot = { html, label, at: now };
+  const versions = [...getProjectVersions(project), snapshot];
+  return {
+    ...project,
+    html,
+    versions,
+    updatedAt: now,
+  };
+}
+
 export default function EmployeeGenerator() {
   const [projects, setProjects] = useState<FrontendProject[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -68,11 +86,28 @@ export default function EmployeeGenerator() {
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"create" | "workspace">("create");
   const [previewTab, setPreviewTab] = useState<"preview" | "code">("preview");
+  const [historyIndex, setHistoryIndex] = useState(0);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeId),
     [projects, activeId],
   );
+
+  const versions = useMemo(
+    () => (activeProject ? getProjectVersions(activeProject) : []),
+    [activeProject],
+  );
+
+  const previewHtml = useMemo(() => {
+    if (!activeProject) return null;
+    if (versions.length > 0) {
+      const idx = Math.min(Math.max(historyIndex, 0), versions.length - 1);
+      return versions[idx]?.html ?? activeProject.html;
+    }
+    return activeProject.html || null;
+  }, [activeProject, versions, historyIndex]);
+
+  const currentSnapshot = versions[historyIndex];
 
   const refreshProjects = useCallback(() => {
     setProjects(loadFrontendProjects());
@@ -82,12 +117,24 @@ export default function EmployeeGenerator() {
     refreshProjects();
   }, [refreshProjects]);
 
+  useEffect(() => {
+    if (activeProject) {
+      const v = getProjectVersions(activeProject);
+      setHistoryIndex(Math.max(0, v.length - 1));
+    } else {
+      setHistoryIndex(0);
+    }
+  }, [activeId]);
+
   const openProject = (project: FrontendProject) => {
     setActiveId(project.id);
     setProjectName(project.name);
     setTechStack(project.techStack);
     setPrompt("");
     setView("workspace");
+    setPreviewTab("preview");
+    const v = getProjectVersions(project);
+    setHistoryIndex(Math.max(0, v.length - 1));
   };
 
   const startNewProject = () => {
@@ -96,13 +143,20 @@ export default function EmployeeGenerator() {
     setTechStack("html-css");
     setPrompt("");
     setView("create");
+    setHistoryIndex(0);
+    setPreviewTab("preview");
   };
 
-  const persistProject = (project: FrontendProject) => {
+  const persistProject = (project: FrontendProject, goToLatest = true) => {
     const updated = upsertFrontendProject(project);
     setProjects(updated);
     setActiveId(project.id);
     setView("workspace");
+    setPreviewTab("preview");
+    if (goToLatest) {
+      const v = getProjectVersions(project);
+      setHistoryIndex(Math.max(0, v.length - 1));
+    }
   };
 
   const handleCreate = async () => {
@@ -132,15 +186,18 @@ export default function EmployeeGenerator() {
       return;
     }
 
+    setPreviewTab("preview");
     setLoading(true);
     try {
       const html = await generateFrontendHtml(techStack, prompt.trim());
       const now = new Date().toISOString();
+      const label = snapshotLabel(prompt);
       const project: FrontendProject = {
         id: createProjectId(),
         name,
         techStack,
         html,
+        versions: [{ html, label, at: now }],
         prompts: [
           { role: "user", content: prompt.trim(), at: now },
           { role: "assistant", content: "Generated initial website HTML.", at: now },
@@ -152,7 +209,7 @@ export default function EmployeeGenerator() {
       setPrompt("");
       toast({
         title: "Website created",
-        description: `"${name}" is saved locally. Preview it on the right.`,
+        description: `"${name}" is saved locally. Use ← → to browse versions.`,
       });
     } catch (err) {
       toast({
@@ -176,6 +233,7 @@ export default function EmployeeGenerator() {
       return;
     }
 
+    setPreviewTab("preview");
     setLoading(true);
     try {
       const html = await updateFrontendHtml(
@@ -184,9 +242,10 @@ export default function EmployeeGenerator() {
         prompt.trim(),
       );
       const now = new Date().toISOString();
-      const updated: FrontendProject = {
-        ...activeProject,
-        html,
+      const label = snapshotLabel(prompt);
+      let updated = withNewVersion(activeProject, html, label);
+      updated = {
+        ...updated,
         prompts: [
           ...activeProject.prompts,
           { role: "user", content: prompt.trim(), at: now },
@@ -196,13 +255,12 @@ export default function EmployeeGenerator() {
             at: now,
           },
         ],
-        updatedAt: now,
       };
       persistProject(updated);
       setPrompt("");
       toast({
         title: "Changes applied",
-        description: "Preview updated with your latest prompt.",
+        description: "New version saved. Navigate with browser back / forward.",
       });
     } catch (err) {
       toast({
@@ -225,56 +283,56 @@ export default function EmployeeGenerator() {
   };
 
   const copyCode = () => {
-    if (!activeProject?.html) return;
-    navigator.clipboard.writeText(activeProject.html);
+    if (!previewHtml) return;
+    navigator.clipboard.writeText(previewHtml);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const isWorkspace = view === "workspace" && activeProject;
+  const canGoBack = historyIndex > 0;
+  const canGoForward = historyIndex < versions.length - 1;
+
+  const loadingMessage = isWorkspace
+    ? "Applying your changes"
+    : "Building your website";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Frontend Builder</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Create websites with AI, preview them instantly, and refine with prompts.
-          Projects are saved in your browser until the backend is ready.
+    <div className="flex flex-col gap-5 pb-6 min-h-[calc(100vh-5rem)]">
+      <header className="shrink-0">
+        <h1 className="text-2xl font-bold tracking-tight">Frontend Builder</h1>
+        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+          Describe your site, watch it come to life, then refine with prompts.
+          Browse versions with the preview back and forward controls.
         </p>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_1fr]">
-        <aside className="rounded-lg border border-border bg-card p-4 space-y-4 h-fit">
-          <div className="flex items-center justify-between">
+      <div className="flex flex-1 flex-col xl:flex-row gap-5 min-h-0">
+        <aside className="xl:w-56 shrink-0 rounded-xl border border-border bg-card p-4 space-y-3 h-fit xl:sticky xl:top-4">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Your projects
+              <FolderOpen className="h-4 w-4 text-primary" />
+              Projects
             </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startNewProject}
-              className="h-8"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              New
+            <Button variant="outline" size="sm" onClick={startNewProject} className="h-8">
+              <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
           {projects.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No projects yet. Create your first website below.
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              No projects yet. Fill in the form and generate below.
             </p>
           ) : (
-            <ul className="space-y-1 max-h-[320px] overflow-y-auto">
+            <ul className="space-y-0.5 max-h-[200px] xl:max-h-[calc(100vh-12rem)] overflow-y-auto">
               {projects.map((project) => (
                 <li key={project.id}>
                   <button
                     type="button"
                     onClick={() => openProject(project)}
                     className={cn(
-                      "w-full text-left rounded-md px-3 py-2 text-sm transition-colors flex items-center justify-between gap-2 group",
+                      "w-full text-left rounded-lg px-3 py-2 text-sm transition-all flex items-center justify-between gap-2 group",
                       activeId === project.id
-                        ? "bg-primary/15 text-foreground"
+                        ? "bg-primary/15 text-foreground ring-1 ring-primary/30"
                         : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -298,191 +356,173 @@ export default function EmployeeGenerator() {
           )}
         </aside>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            {!isWorkspace && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="project-name">Project name</Label>
-                  <Input
-                    id="project-name"
-                    placeholder="e.g. Portfolio Site"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    className="bg-secondary border-border"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Tech stack</Label>
-                  <RadioGroup
-                    value={techStack}
-                    onValueChange={(v) => setTechStack(v as TechStack)}
-                    className="space-y-2"
-                  >
-                    {TECH_OPTIONS.map((opt) => (
-                      <div
-                        key={opt.value}
-                        className={cn(
-                          "flex items-start gap-3 rounded-lg border border-border p-3",
-                          opt.disabled && "opacity-60",
-                          techStack === opt.value && !opt.disabled && "border-primary/50 bg-primary/5",
-                        )}
-                      >
-                        <RadioGroupItem
-                          value={opt.value}
-                          id={`stack-${opt.value}`}
-                          disabled={opt.disabled}
-                          className="mt-0.5"
-                        />
-                        <label
-                          htmlFor={`stack-${opt.value}`}
+        <div className="flex flex-1 flex-col gap-4 min-w-0 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_1fr] gap-4 shrink-0">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
+              {!isWorkspace && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="project-name">Project name</Label>
+                    <Input
+                      id="project-name"
+                      placeholder="e.g. Portfolio Site"
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      className="bg-secondary border-border"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tech stack</Label>
+                    <RadioGroup
+                      value={techStack}
+                      onValueChange={(v) => setTechStack(v as TechStack)}
+                      className="grid gap-2"
+                    >
+                      {TECH_OPTIONS.map((opt) => (
+                        <div
+                          key={opt.value}
                           className={cn(
-                            "flex-1 cursor-pointer",
-                            opt.disabled && "cursor-not-allowed",
+                            "flex items-center gap-2 rounded-lg border border-border px-3 py-2",
+                            opt.disabled && "opacity-50",
+                            techStack === opt.value &&
+                              !opt.disabled &&
+                              "border-primary/40 bg-primary/5",
                           )}
                         >
-                          <span className="text-sm font-medium flex items-center gap-2">
+                          <RadioGroupItem
+                            value={opt.value}
+                            id={`stack-${opt.value}`}
+                            disabled={opt.disabled}
+                          />
+                          <label
+                            htmlFor={`stack-${opt.value}`}
+                            className={cn(
+                              "text-sm flex-1 cursor-pointer",
+                              opt.disabled && "cursor-not-allowed",
+                            )}
+                          >
                             {opt.label}
                             {opt.disabled && (
-                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              <span className="ml-2 text-[10px] uppercase text-muted-foreground">
                                 Soon
                               </span>
                             )}
-                          </span>
-                          <span className="text-xs text-muted-foreground block mt-0.5">
-                            {opt.description}
-                          </span>
-                        </label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              </>
-            )}
-
-            {isWorkspace && (
-              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Editing: </span>
-                <span className="font-medium">{activeProject.name}</span>
-                <span className="text-muted-foreground ml-2 text-xs">
-                  ({activeProject.techStack})
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="prompt">
-                {isWorkspace ? "Refine with a prompt" : "Describe your website"}
-              </Label>
-              <Textarea
-                id="prompt"
-                placeholder={
-                  isWorkspace
-                    ? "e.g. Change the hero to dark theme and add a contact form section"
-                    : "e.g. A modern landing page for a coffee shop with menu, hours, and location map placeholder"
-                }
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="bg-secondary border-border min-h-[160px] resize-none"
-                disabled={loading}
-              />
-            </div>
-
-            <Button
-              onClick={isWorkspace ? handleRefine : handleCreate}
-              disabled={
-                loading ||
-                (!isWorkspace && (!projectName.trim() || !prompt.trim())) ||
-                (isWorkspace && !prompt.trim())
-              }
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isWorkspace ? "Applying changes..." : "Generating website..."}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {isWorkspace ? "Apply changes" : "Generate website"}
+                          </label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
                 </>
               )}
-            </Button>
 
-            {isWorkspace && activeProject.prompts.length > 0 && (
-              <div className="rounded-lg border border-border bg-card p-3 space-y-2 max-h-[180px] overflow-y-auto">
-                <p className="text-xs font-medium text-muted-foreground">Prompt history</p>
-                {activeProject.prompts
-                  .filter((p) => p.role === "user")
-                  .slice(-5)
-                  .reverse()
-                  .map((entry, i) => (
-                    <p key={`${entry.at}-${i}`} className="text-xs text-muted-foreground border-l-2 border-primary/30 pl-2">
-                      {entry.content}
-                    </p>
-                  ))}
-              </div>
-            )}
-          </div>
+              {isWorkspace && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Editing </span>
+                  <span className="font-semibold">{activeProject.name}</span>
+                </p>
+              )}
 
-          <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col min-h-[420px]">
-            {!activeProject?.html ? (
-              <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Eye className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">Preview will appear here after you generate a website.</p>
+              <div className="space-y-2">
+                <Label htmlFor="prompt">
+                  {isWorkspace ? "Refine with prompt" : "Describe your website"}
+                </Label>
+                <Textarea
+                  id="prompt"
+                  placeholder={
+                    isWorkspace
+                      ? "e.g. Dark hero, add pricing table…"
+                      : "e.g. Modern coffee shop landing page with menu and contact…"
+                  }
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="bg-secondary border-border min-h-[100px] resize-none text-sm"
+                  disabled={loading}
+                />
               </div>
-            ) : (
-              <Tabs
-                value={previewTab}
-                onValueChange={(v) => setPreviewTab(v as "preview" | "code")}
-                className="flex flex-col flex-1"
+
+              <Button
+                onClick={isWorkspace ? handleRefine : handleCreate}
+                disabled={
+                  loading ||
+                  (!isWorkspace && (!projectName.trim() || !prompt.trim())) ||
+                  (isWorkspace && !prompt.trim())
+                }
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
               >
-                <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-                  <TabsList className="h-8 bg-transparent p-0 gap-1">
-                    <TabsTrigger value="preview" className="h-7 text-xs data-[state=active]:bg-background">
-                      <Eye className="h-3.5 w-3.5 mr-1" />
-                      Preview
-                    </TabsTrigger>
-                    <TabsTrigger value="code" className="h-7 text-xs data-[state=active]:bg-background">
-                      <Code className="h-3.5 w-3.5 mr-1" />
-                      Code
-                    </TabsTrigger>
-                  </TabsList>
-                  {previewTab === "code" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={copyCode}
-                      className="h-7 text-xs"
-                    >
-                      {copied ? (
-                        <Check className="h-3 w-3 mr-1 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3 mr-1" />
-                      )}
-                      {copied ? "Copied" : "Copy"}
-                    </Button>
-                  )}
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isWorkspace ? "Applying…" : "Generating…"}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {isWorkspace ? "Apply changes" : "Generate website"}
+                  </>
+                )}
+              </Button>
+
+              {isWorkspace && activeProject.prompts.length > 0 && (
+                <div className="pt-2 border-t border-border space-y-1.5 max-h-[100px] overflow-y-auto">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                    Recent prompts
+                  </p>
+                  {activeProject.prompts
+                    .filter((p) => p.role === "user")
+                    .slice(-3)
+                    .reverse()
+                    .map((entry, i) => (
+                      <p
+                        key={`${entry.at}-${i}`}
+                        className="text-xs text-muted-foreground line-clamp-2 border-l-2 border-primary/40 pl-2"
+                      >
+                        {entry.content}
+                      </p>
+                    ))}
                 </div>
-                <TabsContent value="preview" className="flex-1 m-0 p-0 data-[state=inactive]:hidden">
-                  <iframe
-                    title={`Preview: ${activeProject.name}`}
-                    srcDoc={activeProject.html}
-                    sandbox="allow-scripts allow-same-origin"
-                    className="w-full h-[min(520px,60vh)] border-0 bg-white"
-                  />
-                </TabsContent>
-                <TabsContent value="code" className="flex-1 m-0 overflow-hidden data-[state=inactive]:hidden">
-                  <pre className="p-4 text-xs font-mono text-muted-foreground overflow-auto h-[min(520px,60vh)]">
-                    {activeProject.html}
-                  </pre>
-                </TabsContent>
-              </Tabs>
-            )}
+              )}
+            </div>
+
+            <div className="hidden lg:block rounded-xl border border-dashed border-border/80 bg-muted/10 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Preview tips</p>
+              <ul className="space-y-1 text-xs list-disc list-inside">
+                <li>Use ← → to move between saved versions</li>
+                <li>Refresh reloads the current snapshot</li>
+                <li>Each prompt creates a new version in history</li>
+              </ul>
+            </div>
           </div>
+
+          <BrowserPreview
+            className="flex-1"
+            html={previewHtml}
+            projectName={activeProject?.name ?? projectName}
+            loading={loading}
+            loadingMessage={loadingMessage}
+            canGoBack={canGoBack && !loading}
+            canGoForward={canGoForward && !loading}
+            onBack={() => setHistoryIndex((i) => Math.max(0, i - 1))}
+            onForward={() =>
+              setHistoryIndex((i) => Math.min(versions.length - 1, i + 1))
+            }
+            versionIndex={historyIndex}
+            versionCount={versions.length}
+            versionLabel={
+              currentSnapshot
+                ? `Version ${historyIndex + 1}: ${currentSnapshot.label}`
+                : undefined
+            }
+            previewTab={previewTab}
+            onPreviewTabChange={setPreviewTab}
+            onCopy={copyCode}
+            copied={copied}
+            emptyMessage={
+              loading
+                ? "Sit tight — your preview will appear when generation finishes."
+                : "Generate a website to open the live preview in this browser frame."
+            }
+          />
         </div>
       </div>
     </div>
