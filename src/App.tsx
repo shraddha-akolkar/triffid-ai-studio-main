@@ -9,13 +9,14 @@ import Login from "./pages/Login";
 import DashboardLayout from "./components/DashboardLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminActivityReport from "./pages/admin/AdminActivityReport";
+import AdminProjectsReport from "./pages/admin/AdminProjectsReport";
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ManagerProjects from "./pages/manager/ManagerProjects";
 import ManagerApiKeys from "./pages/manager/ManagerApiKeys";
 import ManagerDeployment from "./pages/manager/ManagerDeployment";
 import ManagerMonitoring from "./pages/manager/ManagerMonitoring";
 import ManagerCICD from "./pages/manager/ManagerCICD";
-import ManagerBuilder from "./pages/manager/ManagerBuilder";
 import ManagerCloud from "./pages/manager/ManagerCloud";
 import ManagerCost from "./pages/manager/ManagerCost";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
@@ -42,6 +43,8 @@ const App = () => (
             <Route element={<DashboardLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/activity-report" element={<AdminActivityReport />} />
+              <Route path="/admin/projects-report" element={<AdminProjectsReport />} />
             </Route>
 
             {/* Manager Routes */}
@@ -58,7 +61,6 @@ const App = () => (
                 element={<ManagerMonitoring />}
               />
               <Route path="/manager/cicd" element={<ManagerCICD />} />
-              <Route path="/manager/builder" element={<ManagerBuilder />} />
               <Route path="/manager/cloud" element={<ManagerCloud />} />
               <Route path="/manager/cost" element={<ManagerCost />} />
             </Route>

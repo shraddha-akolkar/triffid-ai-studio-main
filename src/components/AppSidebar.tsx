@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
+  FileChartColumn,
   FolderKanban,
   Key,
   Rocket,
@@ -32,6 +33,8 @@ const navByRole = {
   admin: [
     { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
     { title: "Users", url: "/admin/users", icon: Users },
+    { title: "Activity Report", url: "/admin/activity-report", icon: Activity },
+    { title: "Projects Report", url: "/admin/projects-report", icon: FileChartColumn },
   ],
   manager: [
     { title: "Dashboard", url: "/manager", icon: LayoutDashboard },
