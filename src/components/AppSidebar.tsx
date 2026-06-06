@@ -40,7 +40,6 @@ const navByRole = {
     { title: "Deployment", url: "/manager/deployment", icon: Rocket },
     { title: "Monitoring", url: "/manager/monitoring", icon: Activity },
     { title: "CI/CD", url: "/manager/cicd", icon: GitBranch },
-    { title: "Visual Builder", url: "/manager/builder", icon: Blocks },
     { title: "Cloud", url: "/manager/cloud", icon: Cloud },
     { title: "AI Cost", url: "/manager/cost", icon: Calculator },
   ],
